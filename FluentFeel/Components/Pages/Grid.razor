@@ -1,23 +1,33 @@
 ﻿@page "/large-grid"
 @rendermode InteractiveServer
+@using Bogus
 @using Microsoft.AspNetCore.Components.Forms
 @using Microsoft.FluentUI.AspNetCore.Components
 
 <h2>FluentDataGrid с виртуализацией и большим объёмом данных</h2>
 
-<div style="height: 800px; max-width: 1200px; overflow-y: scroll;">
-    <FluentDataGrid @ref="Grid2" Items=@items Virtualize="true" DisplayMode="DataGridDisplayMode.Table" Style="width: 100%;" ItemSize="54" GenerateHeader="@GenerateHeaderOption.Sticky">
+<div style="height: 800px; max-width: 100%; overflow-y: scroll;">
+    <FluentDataGrid @ref="Grid2" Items="@FilteredItems" Virtualize="true" DisplayMode="DataGridDisplayMode.Table" Style="width: 100%; table-layout: fixed; " ItemSize="34" GenerateHeader="@GenerateHeaderOption.Sticky" AutoFit="false" ResizableColumns=true
+                    ResizeType="DataGridResizeType.Discrete"
+                    RowStyle="@rowStyle">
         <ChildContent>
-            <PropertyColumn Width="25%" Property="@(c => c.Item1)" Sortable="true" />
-            <PropertyColumn Width="25%" Property="@(c => c.Item2)" />
-            <PropertyColumn Width="25%" Property="@(c => c.Item3)" Align="Align.Center" />
-            <PropertyColumn Width="25%" Property="@(c => c.Item4)" Align="Align.End" />
-            <PropertyColumn Width="25%" Property="@(c => c.Item5)" Align="Align.End" />
-            <PropertyColumn Width="25%" Property="@(c => c.Item6)" Align="Align.End" />
-            <PropertyColumn Width="25%" Property="@(c => c.Item7)" Align="Align.End" />
-            <PropertyColumn Width="25%" Property="@(c => c.Item8)" Align="Align.End" />
-            <PropertyColumn Width="25%" Property="@(c => c.Item9)" Align="Align.End" />
-            <PropertyColumn Width="25%" Property="@(c => c.Item10)" Align="Align.End" />
+            <PropertyColumn Property="@(c => c.Item1)" Sortable="true" Filtered="!string.IsNullOrWhiteSpace(nameFilter)" Tooltip="true">
+                <ColumnOptions>
+                    <div class="search-box">
+                        <FluentSearch Autofocus=true @bind-Value=nameFilter @oninput="HandleItem1Filter" @onkeydown="HandleCloseFilterAsync" @bind-Value:after="HandleClear" Placeholder="Country name..." Style="width: 100%;" Label="Filter" />
+                    </div>
+                </ColumnOptions>
+            </PropertyColumn>
+            <PropertyColumn Property="@(c => c.Item2)">                
+            </PropertyColumn>
+            <PropertyColumn  Property="@(c => c.Item3)" Align="Align.Center" />
+            <PropertyColumn  Property="@(c => c.Item4)" Align="Align.End" />
+            <PropertyColumn  Property="@(c => c.Item5)" Align="Align.End" />
+            <PropertyColumn  Property="@(c => c.Item6)" Align="Align.End" />
+            <PropertyColumn  Property="@(c => c.Item7)" Align="Align.End" />
+            <PropertyColumn  Property="@(c => c.Item8)" Align="Align.End" />
+            <PropertyColumn  Property="@(c => c.Item9)" Align="Align.End" />
+            <PropertyColumn  Property="@(c => c.Item10)" Align="Align.End" />
         </ChildContent>
         <EmptyContent>
             <FluentIcon Value="@(new Icons.Filled.Size24.Crown())" Color="@Color.Accent" />&nbsp; Nothing to see here. Carry on!
@@ -42,25 +52,70 @@
 @code {
     FluentDataGrid<SampleGridData>? Grid2;
     FluentSwitch? _clearToggle;
+    string nameFilter = string.Empty;
 
     bool _clearItems = false;
-    public record SampleGridData(string Item1, string Item2, string Item3, string Item4, string Item5, string Item6, string Item7, string Item8, string Item9, string Item10);
+    private Timer? _timer; // ✅ таймер для добавления данных
+    private readonly object _lock = new();
+    private Random _rand = new();
+
+    public partial record SampleGridData(
+        string Item1, string Item2, string Item3, string Item4, string Item5,
+        string Item6, string Item7, string Item8, string Item9, string Item10)
+    {
+        public SampleGridData() : this("", "", "", "", "", "", "", "", "", "") { }
+    }
 
     IQueryable<SampleGridData>? items = Enumerable.Empty<SampleGridData>().AsQueryable();
+    IQueryable<SampleGridData>? FilteredItems => items?.Where(x => x.Item1.Contains(nameFilter, StringComparison.CurrentCultureIgnoreCase));
 
-    private IQueryable<SampleGridData> GenerateSampleGridData(int size)
+    private IQueryable<SampleGridData> GenerateFakeData(int size)
     {
-        SampleGridData[] data = new SampleGridData[size];
+        var faker = new Faker<SampleGridData>()
+            .RuleFor(x => x.Item1, f => f.Name.FullName())
+            .RuleFor(x => x.Item2, f => f.Company.CompanyName())
+            .RuleFor(x => x.Item3, f => f.Address.City())
+            .RuleFor(x => x.Item4, f => f.Random.Replace("###-##-####"))
+            .RuleFor(x => x.Item5, f => f.Date.Past().ToString("yyyy-MM-dd"))
+            .RuleFor(x => x.Item6, f => f.Finance.Account())
+            .RuleFor(x => x.Item7, f => f.Lorem.Sentence(5))
+            .RuleFor(x => x.Item8, f => f.Internet.Email())
+            .RuleFor(x => x.Item9, f => f.Phone.PhoneNumber())
+            .RuleFor(x => x.Item10, f => f.Random.AlphaNumeric(10));
 
-        for (int i = 0; i < size; i++)
-        {
-            data[i] = new SampleGridData($"value {i}-1", $"value {i}-2", $"value {i}-3", $"value {i}-4", $"value {i}-5", $"value {i}-6", $"value {i}-7", $"value {i}-8", $"value {i}-9", $"value {i}-10");
-        }
-        return data.AsQueryable();
+        return faker.Generate(size).AsQueryable();
     }
+
+    Func<SampleGridData, string?> rowStyle = x =>
+    {
+        if (x.Item5.StartsWith("2024")) return "background-color: var(--highlight-bg)";
+        if (x.Item5.StartsWith("2025-10")) return "background-color: #f5c2ef";
+        return null;
+    };
+
     protected override void OnInitialized()
     {
-        items = GenerateSampleGridData(5000);
+        items = GenerateFakeData(5000);
+        StartAutoAddTimer(); // ✅ запускаем таймер
+    }
+
+    private void StartAutoAddTimer()
+    {
+        _timer = new Timer(_ =>
+        {
+            lock (_lock)
+            {
+                if (items == null) return;
+
+                int count = _rand.Next(2, 4); // добавляем 2–3 записи
+                var newItems = GenerateFakeData(count).ToList();
+                var updatedList = items.ToList();
+                updatedList.AddRange(newItems);
+                items = updatedList.AsQueryable();
+            }
+
+            InvokeAsync(StateHasChanged);
+        }, null, TimeSpan.FromSeconds(2), TimeSpan.FromSeconds(2));
     }
 
     private void ToggleItems()
@@ -71,20 +126,50 @@
         }
         else
         {
-            items = GenerateSampleGridData(5000);
+            items = GenerateFakeData(5000);
+        }
+    }
+
+    private void HandleItem1Filter(ChangeEventArgs args)
+    {
+        if (args.Value is string value)
+        {
+            nameFilter = value;
+        }
+    }
+
+    private void HandleClear()
+    {
+        if (string.IsNullOrWhiteSpace(nameFilter))
+        {
+            nameFilter = string.Empty;
+        }
+    }
+
+    private async Task HandleCloseFilterAsync(KeyboardEventArgs args)
+    {
+        if (args.Key == "Escape")
+        {
+            nameFilter = string.Empty;
+        }
+        if (args.Key == "Enter" && Grid2 is not null)
+        {
+            await Grid2.CloseColumnOptionsAsync();
         }
     }
 
     private async Task SimulateDataLoading()
     {
         _clearItems = false;
-
         items = null;
         Grid2?.SetLoadingState(true);
-
         await Task.Delay(1500);
-
-        items = GenerateSampleGridData(5000);
+        items = GenerateFakeData(5000);
         Grid2?.SetLoadingState(false);
+    }
+
+    public void Dispose()
+    {
+        _timer?.Dispose();
     }
 }
