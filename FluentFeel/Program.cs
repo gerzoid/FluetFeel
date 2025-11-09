@@ -1,3 +1,4 @@
+using Blazored.LocalStorage;
 using FluentFeel.Components;
 using FluentFeel.Components.Account;
 using FluentFeel.Data;
@@ -20,6 +21,7 @@ namespace FluentFeel
             builder.Services.AddFluentUIComponents();
 
             builder.Services.AddCascadingAuthenticationState();
+            builder.Services.AddBlazoredLocalStorage();
             builder.Services.AddScoped<IdentityUserAccessor>();
             builder.Services.AddScoped<IdentityRedirectManager>();
             builder.Services.AddScoped<AuthenticationStateProvider, IdentityRevalidatingAuthenticationStateProvider>();

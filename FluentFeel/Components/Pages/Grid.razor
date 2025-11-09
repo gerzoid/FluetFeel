@@ -1,17 +1,32 @@
 ﻿@page "/large-grid"
 @inject IToastService ToastService
 @inject AuthenticationStateProvider identity
-@rendermode InteractiveServer
+@inject ILocalStorageService LocalStorage
 
+@rendermode @(new InteractiveServerRenderMode(prerender: false))
+@attribute [Authorize]
+
+
+@using Blazored.LocalStorage
 @using Bogus
 @using FluentFeel.Components.Account
+@using Microsoft.AspNetCore.Authorization
 @using Microsoft.AspNetCore.Components.Forms
 @using Microsoft.FluentUI.AspNetCore.Components
 
-<h2>FluentDataGrid с виртуализацией и большим объёмом данных</h2>
+<h2>FluentDataGrid с виртуализацией и большим объёмом данных @countRecords</h2>
+
+<AuthorizeView>
+    <Authorized>Залогинен</Authorized>
+    <NotAuthorized>Не залогинен</NotAuthorized>
+</AuthorizeView>
+
 
 <div style="height: 800px; max-width: 100%; overflow-y: scroll;">
-        <FluentDataGrid @ref="Grid2" Items="@FilteredItems" Virtualize="true" DisplayMode="DataGridDisplayMode.Table" Style="min-width: max-content; table-layout: fixed; " ItemSize="34" GenerateHeader="@GenerateHeaderOption.Sticky" AutoFit="false" ResizableColumns=true
+    <FluentTextField @bind-value="columnName">Имя поля</FluentTextField>
+    <FluentTextField @bind-value="columnValue">Вхождение текста</FluentTextField>
+    <FluentButton OnClick="@SaveFilter" Appearance="Appearance.Accent">Сохранить</FluentButton>
+    <FluentDataGrid @ref="Grid2" Items="@FilteredItems" Virtualize="true" DisplayMode="DataGridDisplayMode.Table" Style="min-width: max-content; table-layout: fixed; " ItemSize="34" GenerateHeader="@GenerateHeaderOption.Sticky" AutoFit="false" ResizableColumns=true
                     ResizeType="DataGridResizeType.Discrete"
                     RowStyle="@rowStyle">
         <ChildContent>
@@ -24,7 +39,11 @@
             </PropertyColumn>
             <PropertyColumn Property="@(c => c.Item2)">                
             </PropertyColumn>
-            <PropertyColumn  Property="@(c => c.Item3)" Align="Align.Center" />
+            <TemplateColumn Title="Item3" Align="Align.Center">
+                <div style="@GetStatusStyle(context.Item3)">
+                    @context.Item3
+                </div>
+            </TemplateColumn>
             <PropertyColumn  Property="@(c => c.Item4)" Align="Align.End" />
             <PropertyColumn  Property="@(c => c.Item5)" Align="Align.End" />
             <PropertyColumn  Property="@(c => c.Item6)" Align="Align.End" />
@@ -58,6 +77,9 @@
     FluentSwitch? _clearToggle;
     string nameFilter = string.Empty;
     string userName = "";
+    string columnValue= "New";
+    int countRecords = 0;
+    string columnName = "item3";
 
     bool _clearItems = false;
     private Timer? _timer; // ✅ таймер для добавления данных
@@ -98,12 +120,24 @@
         return null;
     };
 
+    public void SaveFilter()
+    {
+        LocalStorage.SetItemAsync<string>("filterValue",columnValue);
+    }
+
     protected override async Task OnInitializedAsync()
     {
-        items = GenerateFakeData(5000);
+        if (await LocalStorage.ContainKeyAsync("filterValue"))
+        {
+            columnValue = await LocalStorage.GetItemAsync<string>("filterValue");
+        }
+        
+        items = GenerateFakeData(500);
+        countRecords = items.Count();
         StartAutoAddTimer(); // ✅ запускаем таймер
         var authState = await identity.GetAuthenticationStateAsync();
         var user = authState.User;
+
 
         if (user.Identity?.IsAuthenticated == true)
         {
@@ -127,6 +161,7 @@
                 var updatedList = items.ToList();
                 updatedList.AddRange(newItems);
                 items = updatedList.AsQueryable();
+                countRecords = items.Count();
             }
             ShowToast();
             InvokeAsync(StateHasChanged);
@@ -171,6 +206,13 @@
         {
             await Grid2.CloseColumnOptionsAsync();
         }
+    }
+
+    string GetStatusStyle(string value)
+    {
+        if (value.Contains(columnValue))
+            return "background-color: #90ee90; padding: 4px 8px; border-radius: 4px;";
+        else return "";
     }
 
     void ShowToast()
