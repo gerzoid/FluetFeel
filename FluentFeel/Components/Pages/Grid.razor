@@ -1,8 +1,10 @@
 ﻿@page "/large-grid"
 @inject IToastService ToastService
+@inject AuthenticationStateProvider identity
 @rendermode InteractiveServer
 
 @using Bogus
+@using FluentFeel.Components.Account
 @using Microsoft.AspNetCore.Components.Forms
 @using Microsoft.FluentUI.AspNetCore.Components
 
@@ -55,6 +57,7 @@
     FluentDataGrid<SampleGridData>? Grid2;
     FluentSwitch? _clearToggle;
     string nameFilter = string.Empty;
+    string userName = "";
 
     bool _clearItems = false;
     private Timer? _timer; // ✅ таймер для добавления данных
@@ -95,10 +98,20 @@
         return null;
     };
 
-    protected override void OnInitialized()
+    protected override async Task OnInitializedAsync()
     {
         items = GenerateFakeData(5000);
         StartAutoAddTimer(); // ✅ запускаем таймер
+        var authState = await identity.GetAuthenticationStateAsync();
+        var user = authState.User;
+
+        if (user.Identity?.IsAuthenticated == true)
+        {
+            userName = user.Identity.Name
+                       ?? user.FindFirst("name")?.Value
+                       ?? user.FindFirst("http://schemas.xmlsoap.org/ws/2005/05/identity/claims/name")?.Value
+                       ?? "Аноним";
+        }
     }
 
     private void StartAutoAddTimer()
@@ -165,7 +178,7 @@
         Random rnd = new();
 
         var intent = Enum.GetValues<ToastIntent>()[rnd.Next(10)];
-        var message = $"Добавлены записи";
+        var message = $"Добавлены записи для юзера {userName}";
         ToastService.ShowToast(intent, message,2123);
     }
 
