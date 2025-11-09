@@ -1,5 +1,7 @@
 ﻿@page "/large-grid"
+@inject IToastService ToastService
 @rendermode InteractiveServer
+
 @using Bogus
 @using Microsoft.AspNetCore.Components.Forms
 @using Microsoft.FluentUI.AspNetCore.Components
@@ -7,7 +9,7 @@
 <h2>FluentDataGrid с виртуализацией и большим объёмом данных</h2>
 
 <div style="height: 800px; max-width: 100%; overflow-y: scroll;">
-    <FluentDataGrid @ref="Grid2" Items="@FilteredItems" Virtualize="true" DisplayMode="DataGridDisplayMode.Table" Style="width: 100%; table-layout: fixed; " ItemSize="34" GenerateHeader="@GenerateHeaderOption.Sticky" AutoFit="false" ResizableColumns=true
+        <FluentDataGrid @ref="Grid2" Items="@FilteredItems" Virtualize="true" DisplayMode="DataGridDisplayMode.Table" Style="min-width: max-content; table-layout: fixed; " ItemSize="34" GenerateHeader="@GenerateHeaderOption.Sticky" AutoFit="false" ResizableColumns=true
                     ResizeType="DataGridResizeType.Discrete"
                     RowStyle="@rowStyle">
         <ChildContent>
@@ -39,7 +41,7 @@
             </FluentStack>
         </LoadingContent>
     </FluentDataGrid>
-</div>
+    </div>
 <br />
 <FluentSwitch @ref="_clearToggle"
               @bind-Value="@_clearItems"
@@ -113,9 +115,9 @@
                 updatedList.AddRange(newItems);
                 items = updatedList.AsQueryable();
             }
-
+            ShowToast();
             InvokeAsync(StateHasChanged);
-        }, null, TimeSpan.FromSeconds(2), TimeSpan.FromSeconds(2));
+        }, null, TimeSpan.FromSeconds(3), TimeSpan.FromSeconds(3));
     }
 
     private void ToggleItems()
@@ -158,6 +160,15 @@
         }
     }
 
+    void ShowToast()
+    {
+        Random rnd = new();
+
+        var intent = Enum.GetValues<ToastIntent>()[rnd.Next(10)];
+        var message = $"Добавлены записи";
+        ToastService.ShowToast(intent, message,2123);
+    }
+
     private async Task SimulateDataLoading()
     {
         _clearItems = false;
@@ -166,6 +177,7 @@
         await Task.Delay(1500);
         items = GenerateFakeData(5000);
         Grid2?.SetLoadingState(false);
+        ShowToast();
     }
 
     public void Dispose()
